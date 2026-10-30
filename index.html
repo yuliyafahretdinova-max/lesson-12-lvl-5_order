@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Stars</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f9fc;font-family:Arial,sans-serif;color:#17233c;user-select:none}
+
+  .app{height:100%;min-height:520px;padding:16px}
+
+  .sheet{
+    position:relative;width:100%;height:100%;
+    background:#ffffff;border-radius:16px;border:1px solid #eef1f6;
+    box-shadow:0 8px 26px rgba(30,50,90,.08);
+    overflow:hidden;touch-action:manipulation;
+  }
+  svg#paper{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+
+  .toolbar{position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:20;
+    background:#f4f8fc;border:1px solid #d7e6f5;border-radius:12px;padding:6px;
+    box-shadow:0 4px 14px rgba(30,60,110,.12)}
+  .toolbar button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+    border:0;border-radius:8px;background:transparent;color:#33415c;cursor:pointer;
+    transition:background .15s ease,color .15s ease,transform .1s ease}
+  .toolbar button svg{width:20px;height:20px;stroke:currentColor;fill:none}
+  .toolbar button:hover{background:#e4edf9;color:#1c2c47}
+  .toolbar button:active{transform:scale(.92)}
+
+  .chip{
+    position:absolute;top:12px;left:12px;z-index:20;
+    display:flex;align-items:center;gap:8px;
+    height:44px;padding:0 16px 0 12px;border-radius:999px;
+    background:#fff8e1;border:3px solid #f5d98a;
+    font-weight:800;font-size:18px;color:#8a5d00;
+    transition:background .25s ease,border-color .25s ease,color .25s ease;
+  }
+  .chip svg{height:22px;width:auto}
+  .chip.pair{background:#eaf3fc;border-color:#a9cdec;color:#2c5fa8}
+  .chip.hidden{display:none}
+
+  .success{position:absolute;top:12px;left:12px;z-index:20;display:flex;align-items:center;justify-content:center;
+    width:44px;height:44px;border-radius:50%;background:#e4f8ee;border:3px solid #8fdcb2;
+    opacity:0;transform:scale(.5);transition:opacity .25s ease,transform .25s ease}
+  .success.show{opacity:1;transform:scale(1)}
+  .success svg{width:24px;height:24px;stroke:#1c8a52;fill:none;stroke-width:2.6}
+
+  .answerRow{
+    position:absolute;left:50%;bottom:18px;transform:translate(-50%,20px);z-index:20;
+    display:flex;align-items:center;gap:12px;
+    background:#ffffff;border:2px solid #d7e6f5;border-radius:16px;padding:10px 14px;
+    box-shadow:0 8px 22px rgba(30,60,110,.15);
+    opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease;
+  }
+  .answerRow.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+  .answerRow .eq{font-weight:800;font-size:24px;color:#9aa7bd}
+  .answerRow svg.starIcon{width:30px;height:30px}
+  .ansInput{
+    width:84px;height:48px;border-radius:12px;border:2px solid #d7e6f5;background:#f4f8fc;
+    text-align:center;font-weight:800;font-size:24px;color:#2c7fce;outline:0;font-family:inherit;
+    transition:background .2s ease,border-color .2s ease,color .2s ease;
+  }
+  .ansInput.correct{border-color:#8fdcb2;background:#eafaf1;color:#1c8a52}
+  .ansInput.wrong{border-color:#f2aeb5;background:#fdeef0;color:#c8404b;animation:shake .3s ease}
+  @keyframes shake{20%{transform:translateX(-5px)}50%{transform:translateX(5px)}80%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+  .checkBtn{width:48px;height:48px;border-radius:12px;border:0;background:#2c7fce;color:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    box-shadow:0 5px 12px rgba(44,127,206,.35)}
+  .checkBtn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:3}
+  .checkBtn:active{transform:scale(.92)}
+
+  .pop{animation:pop .28s ease}
+  @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<main class="app">
+  <section class="sheet" id="sheet">
+    <svg id="paper"></svg>
+
+    <div class="chip" id="chip"></div>
+    <div class="success" id="success">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.5 2.5L16 9"></path></svg>
+    </div>
+
+    <div class="toolbar">
+      <button id="undoBtn" aria-label="Undo" title="Undo">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 14L4 9l5-5"></path>
+          <path d="M4 9h10a6 6 0 0 1 0 12h-3"></path>
+        </svg>
+      </button>
+      <button id="resetBtn" aria-label="Reset" title="Reset">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 1 3 6.7"></path>
+          <path d="M3 21v-5h5"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="answerRow" id="answerRow">
+      <svg class="starIcon" viewBox="0 0 24 24"><polygon id="ansStar" fill="#f5b82e" stroke="#d99a1b" stroke-width="1.2" stroke-linejoin="round"></polygon></svg>
+      <span class="eq">=</span>
+      <input class="ansInput" id="ansInput" inputmode="numeric" maxlength="3">
+      <button class="checkBtn" id="checkBtn" aria-label="Check" title="Check">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"></path></svg>
+      </button>
+    </div>
+  </section>
+</main>
+
+<script>
+const SINGLES = 5, PAIRS = 9;
+const TOTAL = SINGLES + PAIRS * 2;
+const NS = "http://www.w3.org/2000/svg";
+
+const $ = id => document.getElementById(id);
+const sheet = $("sheet"), paper = $("paper"), chip = $("chip"), successEl = $("success");
+const answerRow = $("answerRow"), ansInput = $("ansInput"), checkBtn = $("checkBtn");
+const undoBtn = $("undoBtn"), resetBtn = $("resetBtn");
+
+function starPoints(cx, cy, R, r){
+  const pts = [];
+  for(let i = 0; i < 10; i++){
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const rad = i % 2 === 0 ? R : r;
+    pts.push((cx + Math.cos(a) * rad).toFixed(2) + "," + (cy + Math.sin(a) * rad).toFixed(2));
+  }
+  return pts.join(" ");
+}
+
+$("ansStar").setAttribute("points", starPoints(12, 12.5, 10.5, 4.4));
+
+function makeStar(cx, cy, R){
+  const p = document.createElementNS(NS, "polygon");
+  p.setAttribute("points", starPoints(cx, cy, R, R * 0.44));
+  p.setAttribute("fill", "#f5b82e");
+  p.setAttribute("stroke", "#d99a1b");
+  p.setAttribute("stroke-width", "1.6");
+  p.setAttribute("stroke-linejoin", "round");
+  return p;
+}
+
+function makeSingle(x, y){
+  const g = document.createElementNS(NS, "g");
+  g.appendChild(makeStar(x, y, 20));
+  return g;
+}
+
+function makePair(x, y){
+  const g = document.createElementNS(NS, "g");
+  const cap = document.createElementNS(NS, "rect");
+  cap.setAttribute("x", x - 40); cap.setAttribute("y", y - 24);
+  cap.setAttribute("width", 80); cap.setAttribute("height", 48);
+  cap.setAttribute("rx", 24);
+  cap.setAttribute("fill", "#eaf3fc");
+  cap.setAttribute("stroke", "#a9cdec");
+  cap.setAttribute("stroke-width", "2");
+  g.appendChild(cap);
+  g.appendChild(makeStar(x - 19, y, 16));
+  g.appendChild(makeStar(x + 19, y, 16));
+  return g;
+}
+
+let items = [];   // {type:'single'|'pair', x, y, el}
+
+function counts(){
+  return {
+    s: items.filter(i => i.type === "single").length,
+    p: items.filter(i => i.type === "pair").length
+  };
+}
+
+function stage(){
+  const c = counts();
+  if(c.s < SINGLES) return 1;
+  if(c.p < PAIRS) return 2;
+  return 3;
+}
+
+function chipSingleIcon(){
+  return '<svg viewBox="0 0 24 24"><polygon fill="#f5b82e" stroke="#d99a1b" stroke-width="1.2" stroke-linejoin="round" points="' + starPoints(12, 12.5, 10.5, 4.6) + '"></polygon></svg>';
+}
+function chipPairIcon(){
+  return '<svg viewBox="0 0 44 24"><polygon fill="#f5b82e" stroke="#d99a1b" stroke-width="1.2" stroke-linejoin="round" points="' + starPoints(11, 12.5, 10, 4.4) + '"></polygon><polygon fill="#f5b82e" stroke="#d99a1b" stroke-width="1.2" stroke-linejoin="round" points="' + starPoints(33, 12.5, 10, 4.4) + '"></polygon></svg>';
+}
+
+function refreshUI(){
+  const st = stage(), c = counts();
+  if(st === 1){
+    chip.className = "chip";
+    chip.innerHTML = chipSingleIcon() + "<span>" + c.s + "/" + SINGLES + "</span>";
+  } else if(st === 2){
+    chip.className = "chip pair";
+    chip.innerHTML = chipPairIcon() + "<span>" + c.p + "/" + PAIRS + "</span>";
+  } else {
+    chip.className = "chip hidden";
+  }
+  answerRow.classList.toggle("show", st === 3);
+  if(st !== 3){
+    successEl.classList.remove("show");
+    ansInput.value = "";
+    ansInput.classList.remove("correct", "wrong");
+  }
+}
+
+function tooClose(x, y, rNew){
+  return items.some(i => {
+    const rOld = i.type === "pair" ? 40 : 22;
+    return Math.hypot(i.x - x, i.y - y) < rOld + rNew;
+  });
+}
+
+function clampPoint(x, y, type){
+  const w = paper.clientWidth, h = paper.clientHeight;
+  const mx = type === "pair" ? 46 : 26;
+  const top = 70;   // keep clear of the corner controls
+  return {
+    x: Math.min(Math.max(x, mx), w - mx),
+    y: Math.min(Math.max(y, top), h - 100)
+  };
+}
+
+function place(clientX, clientY){
+  const st = stage();
+  if(st === 3) return;
+  const r = paper.getBoundingClientRect();
+  const type = st === 1 ? "single" : "pair";
+  const p = clampPoint(clientX - r.left, clientY - r.top, type);
+  if(tooClose(p.x, p.y, type === "pair" ? 40 : 22)) return;
+
+  const el = type === "pair" ? makePair(p.x, p.y) : makeSingle(p.x, p.y);
+  el.classList.add("pop");
+  el.style.transformOrigin = p.x + "px " + p.y + "px";
+  paper.insertBefore(el, ghost);
+  items.push({ type, x: p.x, y: p.y, el });
+  refreshUI();
+}
+
+// ghost preview
+const ghost = document.createElementNS(NS, "g");
+ghost.setAttribute("opacity", "0.35");
+ghost.style.pointerEvents = "none";
+paper.appendChild(ghost);
+
+function showGhost(clientX, clientY){
+  const st = stage();
+  ghost.replaceChildren();
+  if(st === 3) return;
+  const r = paper.getBoundingClientRect();
+  const type = st === 1 ? "single" : "pair";
+  const p = clampPoint(clientX - r.left, clientY - r.top, type);
+  const g = type === "pair" ? makePair(p.x, p.y) : makeSingle(p.x, p.y);
+  if(tooClose(p.x, p.y, type === "pair" ? 40 : 22)) g.setAttribute("opacity", "0.4");
+  ghost.appendChild(g);
+}
+
+paper.addEventListener("pointermove", e => { if(e.pointerType === "mouse") showGhost(e.clientX, e.clientY); });
+paper.addEventListener("pointerleave", () => ghost.replaceChildren());
+paper.addEventListener("pointerup", e => {
+  place(e.clientX, e.clientY);
+  if(e.pointerType !== "mouse") ghost.replaceChildren();
+  else showGhost(e.clientX, e.clientY);
+});
+
+undoBtn.addEventListener("click", () => {
+  const last = items.pop();
+  if(last) last.el.remove();
+  refreshUI();
+});
+
+resetBtn.addEventListener("click", () => {
+  items.forEach(i => i.el.remove());
+  items = [];
+  refreshUI();
+});
+
+function checkAnswer(){
+  if(stage() !== 3) return;
+  const ok = ansInput.value.trim() !== "" && Number(ansInput.value) === TOTAL;
+  ansInput.classList.remove("correct", "wrong");
+  ansInput.classList.add(ok ? "correct" : "wrong");
+  if(ok) successEl.classList.add("show");
+}
+
+ansInput.addEventListener("input", () => {
+  ansInput.value = ansInput.value.replace(/[^0-9]/g, "").slice(0, 3);
+  ansInput.classList.remove("correct", "wrong");
+});
+ansInput.addEventListener("keydown", e => { if(e.key === "Enter") checkAnswer(); });
+checkBtn.addEventListener("click", checkAnswer);
+
+refreshUI();
+</script>
+</body>
+</html>
